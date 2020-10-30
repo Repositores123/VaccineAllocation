@@ -1,0 +1,113 @@
+pragma solidity ^0.6.0;
+
+// Creating a smart contract for the vaccine lots
+
+contract vLot {
+ 
+    address payable ownerID; //The eth address of the contract deployer
+    //mapping(address => uint) public vLotCountry; //Mapping the produced vaccine Lot to its corresponding vLotCountry ID (Ministry of Health)
+    string vLotName; //A variable that defines the Vaccine Lot name
+    string vLotCountry; //Specifies which country the vLot is manufactured for
+    uint numDoses; //A variable that specifies the number of vaccine doses within each Lot
+    uint vLotPrice; //The price of a Vaccine Lot in ETH
+    //Creating a struct for the uploaded image to the IPFS
+    struct image{
+        string IPFShash;
+    }
+    
+    //Defining Events
+    event newOwner(address oldownerID, address newownerID);
+    event vLotManufactured(string vLotName, uint numDoses, address manufacturer);
+    event imageuploaded(string IPFShash,address manufacturer);
+    event vLotSold(address newownerID, string vLotName, uint numDoses, uint vLotPrice);
+    event vLotAllocated(string _vLotCountry, address allocator);
+    event vLotAvailable(string _vLotname, uint _numDoses, string _vLotCountry);
+    
+    //Defining Modifiers 
+    
+    // This modifier makes sure that only the original owner executes the given function
+    modifier onlyOwner(){
+        require(msg.sender == ownerID, "The sender is not eligible to run this function");
+        _;
+    }
+    
+    //modifier onlyCOVAX(){
+    //    require(msg.sender == COVAX, "The sender is not eligible to run this function");
+    //    _;
+    //}
+    
+    
+    //Creating the contract constructor
+    
+    constructor () public{
+        ownerID = msg.sender;
+        emit newOwner(address(0), ownerID);
+    }
+    
+    //Defining Functions
+    
+    //View the current vaccine Lot owner
+    
+    function CurrentOwner() public view returns (address _currentOwner){
+        return ownerID;
+    }
+    
+    //vLot specifications
+    
+    function vLotDetails(string memory _ipfshash, string memory _vLotname, uint _numDoses) public onlyOwner() returns (bool _success){
+        require(bytes(_ipfshash).length == 46);
+        image(_ipfshash);
+        _success = true;
+        vLotName = _vLotname;
+        numDoses = _numDoses;
+
+        emit vLotManufactured(vLotName, numDoses, msg.sender);
+        emit imageuploaded(_ipfshash, msg.sender);
+
+    }
+    
+    //Transfering ownership 
+    
+    function transferOwnership(address payable _newOwner) public onlyOwner{
+        require(_newOwner != address(0));
+        ownerID = _newOwner; 
+    }
+    
+    //Vaccine Lot Selling function
+    
+    function buyvLot () public payable{
+        
+        address payable buyer = msg.sender;
+        address payable seller = ownerID;
+        require(buyer != seller, "The lot is already owned by the function caller");
+        require(msg.value >= vLotPrice, "insufficient payment"); //Checks if the buyer paid enough
+        uint refundAmount = msg.value - vLotPrice; //if msg.value is more than enough then the reminder is refunded to the buyer
+        msg.sender.transfer(refundAmount); // Transfers the excess amount to the buyer
+
+        seller.transfer(vLotPrice); //Transfering ether to the seller
+        ownerID = buyer; //Upating the ownerID
+        
+        emit vLotSold(ownerID, vLotName, numDoses, vLotPrice);
+            }
+    
+    
+    
+
+    //Allocating the Vaccine Lot to a country by COVAX facility
+    
+    function vLotAllocation(string memory _vLotCountry) public onlyOwner(){
+
+        vLotCountry = _vLotCountry;
+        
+        emit vLotAllocated(vLotCountry, msg.sender);
+    }
+    
+    //Viewing the details of the vaccine Lot
+    
+    function viewVLot() public view returns(string memory _vLotname, uint _numDoses, string memory _vLotCountry){
+        
+        return(vLotName, numDoses, vLotCountry);
+    }
+    
+    
+}
